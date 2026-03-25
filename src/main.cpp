@@ -1,7 +1,6 @@
 #include <Arduino.h>
 
 /* 
-TODO: Change code to not use relay module
 TODO: Implement the circuit on a breadboard
 TODO: Record video of system working
 TODO: Update/Simplify documentation if necessary
