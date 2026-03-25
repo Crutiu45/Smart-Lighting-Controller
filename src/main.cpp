@@ -1,12 +1,11 @@
 #include <Arduino.h>
 
 /* 
+TODO: Change code to not use relay module
 TODO: Implement the circuit on a breadboard
 TODO: Record video of system working
 TODO: Update/Simplify documentation if necessary
 TODO: PCB Design
-
-Current project state: Base functionality has been achieved.
 
 High Level Project Objective: Simulate smart lighting system with an override option for manual lighting control.
 
