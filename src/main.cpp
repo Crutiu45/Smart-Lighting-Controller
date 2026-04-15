@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Adafruit_NeoPixel.h>
 
 /* 
 TODO: Implement the circuit on a breadboard
@@ -10,73 +11,87 @@ High Level Project Objective: Simulate smart lighting system with an override op
 
 High Level Functionality: 
 * When motion is detected, esp32 controller activates relay module which in turn turns on the red led.
-* When the button is pressed at anytime, the system switches to override mode, where the user can turn on/off the led maually
+* When the button is pressed at anytime, the system switches to override mode, where the user can turn on/off the led manually
 * If no motion is detected for `timeout` time, then the led is automatically turned off
 * RGB led represents system states: Red (override mode), Green (motion detected) and Blue (idle/no motion/override inactive)
 */
 
-#define relay_pin 23
-#define pir_pin 33
-#define button_pin 14
-#define red_pin 19
-#define blue_pin 22
-#define green_pin 18
+// Pin Definitions
+#define RELAY_PIN 23
+#define PIR_PIN 33
+#define BUTTON_PIN 14
 
-// vars shared by ISR and Main should be volatile in case hardware changes its value i.e. any var ISR modifies
+// 8RGB LED Configuration
+#define LED_PIN 18
+#define NUM_LEDS 1        // Using only 1 LED from the strip
+
+// Create NeoPixel strip object
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = Arduino pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
+//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
+//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
+//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
+//   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
+Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+// State Variables
 volatile bool override_mode = false; 
 volatile bool relay_state = false;
 int motion = 0;
 
 unsigned long last_motion_time = 0;
-
-volatile unsigned long last_override_activity = 0;
+volatile unsigned long last_pressed_time = 0; 
 const unsigned long timeout = 10000;   // 10 seconds
 
-volatile unsigned long last_pressed_time = 0; 
-
-// made volatile because ISR modifies it 
 volatile int last_button_state = HIGH; 
 
+// Interrupt Handler
 void IRAM_ATTR handleButton() {
   unsigned long now = millis();
-  if (now - last_pressed_time > 250) {
+  if (now - last_pressed_time > 250) {  // Debouncing
     override_mode = true;
     relay_state = !relay_state;
-    //remember the time of pressed for next time 
     last_pressed_time = now;
   }
 }
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
-  // uses internal resistor to pull that pin to 3.3V initially at setup time until pressed
-  pinMode(button_pin, INPUT_PULLUP);
+  
+  // Button setup with internal pullup
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handleButton, FALLING);
 
-  attachInterrupt(digitalPinToInterrupt(button_pin), handleButton, FALLING);
+  // Sensor and relay setup
+  pinMode(PIR_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);  // Start with relay off
 
-  pinMode(pir_pin, INPUT);
-  pinMode(relay_pin, OUTPUT);
-  pinMode(red_pin, OUTPUT);
-  pinMode(green_pin, OUTPUT);
-  pinMode(blue_pin, OUTPUT);
+  // NeoPixel setup
+  strip.begin();           // Initialize NeoPixel strip object
+  strip.setBrightness(50); // Set brightness to about 20% (max = 255)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.clear();           // Set all pixel colors to 'off'
 
-  digitalWrite(relay_pin, LOW); //turn off (sanity check)
+  Serial.println("Smart Lighting System Initialized");
 }
 
 void handleMotion() {
-  if(!override_mode) {
-    motion = digitalRead(pir_pin);
+  if (!override_mode) {
+    motion = digitalRead(PIR_PIN);
 
     if (motion == HIGH) {
       last_motion_time = millis();
       relay_state = true;
+      Serial.println("Motion detected!");
     }
 
-    // Auto turn-off after timeout and if led is on
-    // timeout is always gonna be 5s + timeout due to hardware setting for PIR sensor
-    if (relay_state == true && (millis() - last_motion_time > timeout)) {
+    // Auto turn-off after timeout if led is on
+    if (relay_state && (millis() - last_motion_time > timeout)) {
       relay_state = false;
+      Serial.println("Motion timeout - turning off");
     }
   }
 }
@@ -85,44 +100,37 @@ void checkOverrideTimeout() {
   if (override_mode) {
     if (millis() - last_pressed_time > timeout) {
       override_mode = false;
-      // We don't force relay_state = false here; we let the motion logic 
-      // take over immediately on the next loop.
+      Serial.println("Override mode timeout - returning to auto");
     }
   }
 }
 
 void updateRelay() {
-  if(relay_state == true) {
-    digitalWrite(relay_pin, HIGH);
-  } 
-  else {
-    digitalWrite(relay_pin, LOW);
-  }
-}
-
-void setColor(int r, int g, int b) {
-  analogWrite(red_pin, r);
-  analogWrite(green_pin, g);
-  analogWrite(blue_pin, b);
+  digitalWrite(RELAY_PIN, relay_state ? HIGH : LOW);
 }
 
 void updateRGB() {
-
   if (override_mode) {
-    setColor(255, 0, 0);    // Red = manual override
+    // Red = manual override
+    strip.setPixelColor(0, strip.Color(255, 0, 0));
   }
   else if (relay_state) {
-    setColor(0, 255, 0);    // Green = motion active
+    // Green = motion active
+    strip.setPixelColor(0, strip.Color(0, 255, 0));
   }
   else {
-    setColor(0, 0, 255);    // Blue = idle
+    // Blue = idle
+    strip.setPixelColor(0, strip.Color(0, 0, 255));
   }
+  
+  strip.show();  // Update the LED with new color
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   handleMotion();
   checkOverrideTimeout();
   updateRelay();
   updateRGB();
+  
+  delay(50);  // Small delay to prevent excessive updates
 }
