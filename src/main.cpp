@@ -82,7 +82,7 @@ void handleMotion() {
   if (!override_mode) {
     motion = digitalRead(PIR_PIN);
 
-    if (motion == LOW) {
+    if (motion == HIGH) {
       last_motion_time = millis();
       relay_state = true;
       Serial.println("Motion detected!");
