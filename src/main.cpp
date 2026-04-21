@@ -43,7 +43,7 @@ int motion = 0;
 
 unsigned long last_motion_time = 0;
 volatile unsigned long last_pressed_time = 0; 
-const unsigned long timeout = 10000;   // 10 seconds
+const unsigned long timeout = 5000;   // 5 seconds
 
 volatile int last_button_state = HIGH; 
 
@@ -82,7 +82,7 @@ void handleMotion() {
   if (!override_mode) {
     motion = digitalRead(PIR_PIN);
 
-    if (motion == HIGH) {
+    if (motion == LOW) {
       last_motion_time = millis();
       relay_state = true;
       Serial.println("Motion detected!");
@@ -126,11 +126,46 @@ void updateRGB() {
   strip.show();  // Update the LED with new color
 }
 
+void handleSerialCommands() {
+  if (Serial.available() > 0) {
+    char cmd = Serial.read();
+    
+    switch (cmd) {
+      case 'm':
+        Serial.println("DEBUG: Simulating motion detected");
+        last_motion_time = millis();
+        relay_state = true;
+        break;
+      case 't':
+        Serial.println("DEBUG: Simulating no motion (trigger timeout)");
+        last_motion_time = millis() - timeout - 1000;
+        break;
+      case 'o':
+        Serial.println("DEBUG: Toggling override mode");
+        override_mode = !override_mode;
+        last_pressed_time = millis();
+        break;
+      case 's':
+        Serial.println("--- Status ---");
+        Serial.print("override_mode: "); Serial.println(override_mode ? "true" : "false");
+        Serial.print("relay_state: "); Serial.println(relay_state ? "ON" : "OFF");
+        Serial.print("last_motion_time: "); Serial.println(millis() - last_motion_time);
+        Serial.println("---------------");
+        break;
+      default:
+        Serial.print("Unknown command: "); Serial.println(cmd);
+        Serial.println("Commands: m=motion, t=timeout, o=override, s=status");
+        break;
+    }
+  }
+}
+
 void loop() {
+  handleSerialCommands();
   handleMotion();
   checkOverrideTimeout();
   updateRelay();
   updateRGB();
   
-  delay(50);  // Small delay to prevent excessive updates
+  delay(50);
 }
