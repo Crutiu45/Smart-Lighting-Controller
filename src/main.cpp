@@ -2,7 +2,7 @@
 #include <Adafruit_NeoPixel.h>
 
 /* 
-TODO: Implement the circuit on a breadboard
+TODO: Learn about pir motion sensor, because its doing the opposite behaviour and I can't seem to understand how to simulate motion and non motion with it.
 TODO: Record video of system working
 TODO: Update/Simplify documentation if necessary
 TODO: PCB Design
@@ -106,7 +106,13 @@ void checkOverrideTimeout() {
 }
 
 void updateRelay() {
-  digitalWrite(RELAY_PIN, relay_state ? HIGH : LOW);
+  if (relay_state){
+    digitalWrite(RELAY_PIN, HIGH);
+  }
+
+  else {
+    digitalWrite(RELAY_PIN, LOW);
+  }
 }
 
 void updateRGB() {
@@ -125,6 +131,8 @@ void updateRGB() {
   
   strip.show();  // Update the LED with new color
 }
+
+/* Debugging Function */
 
 void handleSerialCommands() {
   if (Serial.available() > 0) {
