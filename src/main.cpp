@@ -1,21 +1,6 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
-/* 
-TODO: Learn about pir motion sensor, because its doing the opposite behaviour and I can't seem to understand how to simulate motion and non motion with it.
-TODO: Record video of system working
-TODO: Update/Simplify documentation if necessary
-TODO: PCB Design
-
-High Level Project Objective: Simulate smart lighting system with an override option for manual lighting control.
-
-High Level Functionality: 
-* When motion is detected, esp32 controller activates relay module which in turn turns on the red led.
-* When the button is pressed at anytime, the system switches to override mode, where the user can turn on/off the led manually
-* If no motion is detected for `timeout` time, then the led is automatically turned off
-* RGB led represents system states: Red (override mode), Green (motion detected) and Blue (idle/no motion/override inactive)
-*/
-
 // Pin Definitions
 #define RELAY_PIN 23
 #define PIR_PIN 33
