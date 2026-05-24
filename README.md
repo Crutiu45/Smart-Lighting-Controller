@@ -1,8 +1,6 @@
 # Smart Lighting Controller
 
-An ESP32-based automatic room lighting system using PIR motion sensing, relay-controlled lighting, manual override, and a discrete RGB LED for system state indication.
-
-> **Simulation:** A complete Wokwi virtual circuit is included in `diagram.json`. Open it at [wokwi.com](https://wokwi.com) or via the PlatformIO + Wokwi VS Code extension.
+An ESP32-WROVER-based automatic room lighting system using PIR motion sensing, relay-controlled lighting, manual override, and a NeoPixel RGB ring for system state indication.
 
 ---
 
@@ -13,7 +11,7 @@ An ESP32-based automatic room lighting system using PIR motion sensing, relay-co
 - **Auto-off timeout** — Light turns off automatically after 5 seconds of no motion (OCCUPIED → IDLE → EMPTY)
 - **Manual override** — Pushbutton (GPIO14, falling-edge interrupt) toggles the relay on/off, immediately pre-empting automatic control
 - **Override timeout** — System returns to automatic mode 5 seconds after the last button press
-- **RGB status LED** — Discrete common-cathode RGB LED (GPIOs 18/19/22) indicates system state:
+- **NeoPixel status indicator** — FREENOVE WS2812 ring (GPIO18) indicates system state:
   - 🔴 **Red** — Manual override active
   - 🟢 **Green** — Motion detected, relay on (auto mode)
   - 🔵 **Blue** — Idle / no motion / auto mode inactive
@@ -34,32 +32,26 @@ An ESP32-based automatic room lighting system using PIR motion sensing, relay-co
 
 | Component | Part | Pin(s) | Notes |
 |-----------|------|--------|-------|
-| Microcontroller | ESP32 DevKit C V4 | — | 240 MHz dual-core Xtensa LX6 |
+| Microcontroller | ESP32-WROVER | — | 240 MHz dual-core Xtensa LX6 |
 | PIR motion sensor | HC-SR501 (or similar) | GPIO33 | Input, HIGH = motion detected |
-| Relay module | Single-channel 5V relay | GPIO23 | Output — switches LED load |
+| Relay module | 4-channel 5V relay | GPIO23 | Only channel 1 used; switches LED load |
 | Push button | Momentary, normally open | GPIO14 | Internal pull-up; FALLING edge interrupt |
-| RGB LED | Common-cathode discrete LED | R→GPIO19, G→GPIO18, B→GPIO22 | Current-limited via 220Ω resistors |
+| NeoPixel ring | FREENOVE WS2812 (4× LEDs) | GPIO18 | Only first LED used for state indication |
 | Load LED | Red LED | Via relay NO contact | Simulates room lighting load |
-| Resistors | 220Ω × 4 | RGB + load LED | Current limiting |
-| Resistor | 10kΩ × 1 | Button | Pull-down (if not using internal pull-up) |
+| Resistor | 220Ω × 1 | Load LED | Current limiting |
 
 ### Wiring Summary
 
 ```
-ESP32 GPIO23  →  Relay IN
-ESP32 GPIO33  →  PIR OUT         (PIR VCC → 3.3V/5V, PIR GND → GND)
-ESP32 GPIO14  →  Button leg 1    (Button leg 2 → GND)
-ESP32 GPIO18  →  220Ω → RGB G
-ESP32 GPIO19  →  220Ω → RGB R
-ESP32 GPIO22  →  220Ω → RGB B
-                 RGB COM → GND
+ESP32 GPIO23  →  Relay channel 1 IN
+ESP32 GPIO33  →  PIR OUT              (PIR VCC → 5V, PIR GND → GND)
+ESP32 GPIO14  →  Button leg 1         (Button leg 2 → GND)
+ESP32 GPIO18  →  NeoPixel ring DIN    (Ring VCC → 5V, Ring GND → GND)
 
 Relay COM  →  VCC
 Relay NO   →  220Ω → Load LED anode
-             Load LED cathode → GND
+              Load LED cathode → GND
 ```
-
-> **Note:** The Wokwi simulation uses `wokwi-rgb-led` (common cathode, GPIOs 18/19/22) and `wokwi-relay-module`. The firmware drives the RGB pins directly — there is no NeoPixel/WS2812 in the real or simulated circuit.
 
 ---
 
@@ -92,8 +84,6 @@ Smart Lighting Controller/
 ├── src/
 │   └── main.cpp          — Firmware: state machines, ISR, serial debug
 ├── platformio.ini         — PlatformIO build config (esp32doit-devkit-v1, Arduino framework)
-├── diagram.json           — Wokwi circuit schematic
-├── wokwi.toml             — Wokwi simulator config
 ├── .vscode/               — VS Code / PlatformIO IDE settings
 └── .gitignore
 ```
@@ -104,13 +94,12 @@ Smart Lighting Controller/
 
 ### Prerequisites
 
-- [PlatformIO](https://platformio.org/) (CLI or VS Code extension)
-- ESP32 board connected via USB
-- Wokwi VS Code extension *(optional, for simulation)*
+- [PlatformIO](https://platformio.org/) CLI or VS Code extension
+- ESP32 connected via USB (CH340 driver required on Windows)
 
-### Build & Flash
+### Build & Flash (On PlatformIO Core CLI)
 
-```bash
+```
 # Build the firmware
 pio run
 
@@ -121,10 +110,6 @@ pio run --target upload
 pio device monitor
 ```
 
-### Wokwi Simulation
-
-Open the project folder in VS Code with the Wokwi extension installed, then press **F1 → Wokwi: Start Simulator**. The `diagram.json` and `wokwi.toml` files configure the full virtual circuit automatically.
-
 ---
 
 ## Dependencies
@@ -133,9 +118,7 @@ Managed automatically by PlatformIO via `platformio.ini`:
 
 | Library | Version | Purpose |
 |---------|---------|---------|
-| `adafruit/Adafruit NeoPixel` | ^1.12.0 | NeoPixel driver (included; not used on discrete RGB circuit) |
-
-> The Adafruit NeoPixel library is present in `platformio.ini` from an earlier iteration. It is not used by the discrete RGB LED wiring but does no harm if left in.
+| `adafruit/Adafruit NeoPixel` | ^1.12.0 | WS2812 NeoPixel driver |
 
 ---
 
